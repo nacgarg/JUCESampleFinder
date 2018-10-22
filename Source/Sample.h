@@ -104,11 +104,11 @@ class MonoSample {
     // We take a limited logarithmic sampling of an FFT
     // which reduces the memory needed by more than half (?)
 
-    // We downsample the Hilbert to fit in the remaning space, because temporal volume
+    // We downsample the envelope to fit in the remaning space, because temporal volume
     // envelopes don't really need much precision
 
     computeFFT();
-    computeHilbert();
+    computeEnvelope();
 
     const int fftLength = MAX_LENGTH * 3 / 16;
     // FFT is squashed into 3/4 the space of the Analysis struct.
@@ -122,12 +122,13 @@ class MonoSample {
     std::cout << "original size" << MAX_LENGTH * 2 << " "
               << "compressed size: " << squashedFFT.size() << std::endl;
 
-    // Hilbert is downsampled to 1/4 its original size
-    std::vector<float> squashedHilbert;
+    // Envelope is downsampled to 1/4 its original size
+    std::vector<float> squashedEnvelope;
     for (int i = 0; i < MAX_LENGTH * 2; i += 32) {
-      squashedHilbert.push_back(hilbertData[i]);
+      squashedEnvelope.push_back(envelopeData[i]);
     }
-    squashedFFT.insert(squashedFFT.end(), squashedHilbert.begin(), squashedHilbert.end());
+    squashedFFT.insert(squashedFFT.end(), squashedEnvelope.begin(),
+                       squashedEnvelope.end());
 
     Analysis a = {getFilename(), std::array<float, MAX_LENGTH / 4>()};
     std::copy_n(squashedFFT.begin(), MAX_LENGTH / 4, a.analysisData.begin());
@@ -147,42 +148,36 @@ class MonoSample {
     fftExists = true;
   }
 
-  void computeHilbert() {
-    if (!fftExists) {
-      computeFFT();
-    }
-    std::copy(fftData.begin(), fftData.end(), hilbertData.begin());
-    int limit1, limit2;
+  void computeEnvelope() {
+    float m_a = pow(0.01, 1.0 / (50 * SAMPLE_RATE * 0.001));
+    float m_r = pow(0.01, 1.0 / (200 * SAMPLE_RATE * 0.001));
+    std::cout << m_a << " - " << m_r << std::endl;
 
-    int sampleLen = MAX_LENGTH * 2;
-    if (sampleLen % 2 == 0) {
-      limit1 = sampleLen / 2;
-      limit2 = limit1 + 1;
-    } else {
-      limit1 = (sampleLen + 1) / 2;
-      limit2 = limit1;
+    std::copy(data.begin(), data.end(), envelopeData.begin());
+
+    for (int i = 0; i < MAX_LENGTH; ++i) {
+      if (envelopeData[i - 1] > data[i]) {
+        envelopeData[i] =
+            (1 - m_r) * std::abs(data[i]) + m_r * envelopeData[i - 1];
+      } else {
+        envelopeData[i] =
+            (1 - m_a) * std::abs(data[i]) + m_a * envelopeData[i - 1]; 
+      }
     }
-    // multiply the first half by 2 (except the first element)
-    for (int i = 1; i < limit1; ++i) {
-      hilbertData[i] *= 2;
-    }
-    for (int i = limit2; i < sampleLen; ++i) {
-      hilbertData[i] = 0;
-    }
-    forwardFFT->performRealOnlyInverseTransform(hilbertData.begin());
-    hilbertExists = true;
+
+    envelopeExists = true;
   }
   const std::unique_ptr<dsp::FFT> forwardFFT =
       std::unique_ptr<dsp::FFT>(new dsp::FFT(FFT_ORDER));
   bool fftExists = false;
-  bool hilbertExists = false;
+  bool envelopeExists = false;
   int sampleRate;
   int length;
   std::array<float, MAX_LENGTH> data;
   const std::unique_ptr<LagrangeInterpolator> interpolator =
       std::unique_ptr<LagrangeInterpolator>(new LagrangeInterpolator());
   std::array<float, MAX_LENGTH * 2> fftData;
-  std::array<float, MAX_LENGTH * 2> hilbertData;
+  std::array<float, MAX_LENGTH * 2> envelopeData;
   std::string filename;
   AudioFormatManager formatManager;
 };
