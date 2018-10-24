@@ -18,21 +18,28 @@
 static const int MAX_LENGTH = 1 << 16;
 static const int FFT_ORDER = log2(MAX_LENGTH);
 static const int SAMPLE_RATE = 44100;
+static const int ANALYSIS_DATA_LENGTH = MAX_LENGTH / 4;
 
 struct Analysis {
   // Simplified struct to only hold minimal data in memory
-  static const int data_length = MAX_LENGTH / 4;
   std::string filename;
-  std::array<float, MAX_LENGTH / 4> analysisData;
-  // If you need to get the actual audio data, you can eventually use the
+  std::array<float, ANALYSIS_DATA_LENGTH> analysisData;
+  // If you need to get the =actual audio data, you can eventually use the
   // MonoSample(Analysis) constructor once I make it
   static const float compareAnalyses(Analysis& a, Analysis& b) {
     float currScore = 0;
-    for (int i = 0; i < a.data_length; i++) {
-      currScore += (a.analysisData[i] - b.analysisData[i]) *
-                   (a.analysisData[i] - b.analysisData[i]);
+    for (int i = 0; i < ANALYSIS_DATA_LENGTH; i++) {
+      if (!(a.analysisData[i] == a.analysisData[i] &&
+            b.analysisData[i] == b.analysisData[i])) {
+        // std::cout << a.analysisData[i] << " - " << b.analysisData[i] << std::endl;
+        // std::cout << a.analysisData.size() << " " << b.analysisData.size();
+        continue;
+      }
+
+      currScore += (a.analysisData.at(i) - b.analysisData.at(i)) *
+                   (a.analysisData.at(i) - b.analysisData.at(i));
     }
-    return currScore / a.data_length;
+    return currScore / ANALYSIS_DATA_LENGTH;
   }
 
   static void sortAnalyses(std::vector<std::shared_ptr<Analysis>>& arr,
@@ -49,20 +56,20 @@ struct Analysis {
 
   static void serialize(OutputStream& os, Analysis& a) {
     auto* gzip = new GZIPCompressorOutputStream(os, 2);
-    gzip->writeString(a.filename + "\n");
+    gzip->writeString(a.filename);
     gzip->write(reinterpret_cast<const char*>(a.analysisData.data()),
-               a.analysisData.size() * sizeof(float));
+                ANALYSIS_DATA_LENGTH * sizeof(float));
+    gzip->flush();
     delete gzip;
   }
 
   static std::shared_ptr<Analysis> read(InputStream& is) {
     auto* gzip = new GZIPDecompressorInputStream(is);
-
     std::string filename;
-    filename = gzip->readNextLine().toStdString();
+    filename = gzip->readString().toStdString();
     Analysis tmp = {filename};
     gzip->read(reinterpret_cast<char*>(tmp.analysisData.data()),
-              tmp.analysisData.size() * sizeof(float));
+               ANALYSIS_DATA_LENGTH * sizeof(float));
     delete gzip;
     return std::make_shared<Analysis>(tmp);
   }

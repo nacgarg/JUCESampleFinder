@@ -2,3 +2,5 @@ JuceLibraryCode
 .vscode
 *.wav
 Builds
+*.asd
+*.saf

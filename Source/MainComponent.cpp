@@ -19,7 +19,7 @@ MainComponent::MainComponent() {
   // data. This data is then used for comparison instead of continuing to save the entire
   // MonoSample to save memory.
   const std::string sampleLibraryLocation =
-      "/run/media/nachi/KINGSTON/test/";  // For testing
+      "/home/nachi/code/JUCESampleFinder/test/";  // For testing
   std::vector<std::shared_ptr<Analysis>> analyses;
   DirectoryIterator iter(File(sampleLibraryLocation), true, "*.wav,*.aif,*.mp3");
   int i = 0;
@@ -30,12 +30,16 @@ MainComponent::MainComponent() {
     File analysisFile(currFile.getFullPathName() + ".saf");
     std::shared_ptr<Analysis> a;
     if (analysisFile.existsAsFile()) {
-      // read analysis and push_back
+      // read analysis from file
       auto ifp = analysisFile.createInputStream();
-      if (!ifp->openedOk()) {
+      if (ifp->failedToOpen()) {
+        // TODO actually have exceptions and stuff
+        std::cerr << "Couldn't open analysis file for reading" << std::endl;
         continue;
       }
       a = Analysis::read(*ifp);
+
+      delete ifp;
     } else {
       auto s = new MonoSample(currFile);
       a = s->computeAnalysis();
@@ -44,6 +48,7 @@ MainComponent::MainComponent() {
         continue;
       }
       Analysis::serialize(*ofp, *a);
+      delete ofp;
       delete s;
     }
 
