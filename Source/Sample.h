@@ -8,6 +8,8 @@
   ==============================================================================
 */
 #include <math.h>
+#include <algorithm>
+#include <tuple>
 #include <vector>
 #include "../JuceLibraryCode/JuceHeader.h"
 
@@ -19,10 +21,51 @@ static const int SAMPLE_RATE = 44100;
 
 struct Analysis {
   // Simplified struct to only hold minimal data in memory
+  static const int data_length = MAX_LENGTH / 4;
   std::string filename;
   std::array<float, MAX_LENGTH / 4> analysisData;
   // If you need to get the actual audio data, you can eventually use the
   // MonoSample(Analysis) constructor once I make it
+  static const float compareAnalyses(Analysis& a, Analysis& b) {
+    float currScore = 0;
+    for (int i = 0; i < a.data_length; i++) {
+      currScore += (a.analysisData[i] - b.analysisData[i]) *
+                   (a.analysisData[i] - b.analysisData[i]);
+    }
+    return currScore / a.data_length;
+  }
+
+  static void sortAnalyses(std::vector<std::shared_ptr<Analysis>>& arr,
+                           Analysis& reference, int num) {
+    std::vector<std::tuple<float, std::shared_ptr<Analysis>>> scores;
+    for (auto el : arr) {
+      scores.push_back(std::make_tuple(compareAnalyses(*el, reference), el));
+    }
+    std::partial_sort(scores.begin(), scores.begin() + num, scores.end());
+    for (size_t i = 0; i < arr.size(); i++) {
+      arr[i] = std::get<1>(scores[i]);
+    }
+  }
+
+  static void serialize(OutputStream& os, Analysis& a) {
+    auto* gzip = new GZIPCompressorOutputStream(os, 2);
+    gzip->writeString(a.filename + "\n");
+    gzip->write(reinterpret_cast<const char*>(a.analysisData.data()),
+               a.analysisData.size() * sizeof(float));
+    delete gzip;
+  }
+
+  static std::shared_ptr<Analysis> read(InputStream& is) {
+    auto* gzip = new GZIPDecompressorInputStream(is);
+
+    std::string filename;
+    filename = gzip->readNextLine().toStdString();
+    Analysis tmp = {filename};
+    gzip->read(reinterpret_cast<char*>(tmp.analysisData.data()),
+              tmp.analysisData.size() * sizeof(float));
+    delete gzip;
+    return std::make_shared<Analysis>(tmp);
+  }
 };
 
 class MonoSample {
@@ -43,20 +86,34 @@ class MonoSample {
       return;  // bad file or something
     }
     auto fileBuffer = new AudioBuffer<float>(2, reader->lengthInSamples);
-    reader->read(fileBuffer, 0, MAX_LENGTH, static_cast<juce::int64>(0), true, false);
-    // TODO see what happens if you use a mono source file
-    auto* channelDataLeft = fileBuffer->getReadPointer(0);
-    auto* channelDataRight = fileBuffer->getReadPointer(1);
-    std::cout << "Reading file with " << fileBuffer->getNumSamples() << " samples"
-              << std::endl;
+    reader->read(fileBuffer, 0, fileBuffer->getNumSamples(), static_cast<juce::int64>(0),
+                 true, false);
+
     int sampleRate = reader->sampleRate;
     filename = fileToLoad.getFileName().toStdString();
     std::vector<float> temp;
     temp.clear();
-    for (int i = 0; i < MAX_LENGTH; i++) {
-      float mono = (channelDataLeft[i] + channelDataRight[i]) / 2.0;
-      temp.push_back(mono);
+    int lengthToRead = MAX_LENGTH;
+    if (fileBuffer->getNumSamples() < lengthToRead) {
+      lengthToRead = fileBuffer->getNumSamples();
     }
+    if (fileBuffer->getNumChannels() == 1) {
+      auto* channelDataLeft = fileBuffer->getReadPointer(0);
+
+      for (int i = 0; i < lengthToRead; i++) {
+        float mono = channelDataLeft[i];
+        temp.push_back(mono);
+      }
+    } else if (fileBuffer->getNumChannels() == 2) {
+      auto* channelDataLeft = fileBuffer->getReadPointer(0);
+      auto* channelDataRight = fileBuffer->getReadPointer(1);
+
+      for (int i = 0; i < lengthToRead; i++) {
+        float mono = (channelDataLeft[i] + channelDataRight[i]) / 2.0;
+        temp.push_back(mono);
+      }
+    }
+
     setSamples(temp, sampleRate);
     delete reader;
     delete fileBuffer;
@@ -74,7 +131,6 @@ class MonoSample {
   }
 
   void setSamples(std::vector<float> samples, int sampleRateIn) {
-    std::cout << "Received file with sampleRate " << sampleRateIn << std::endl;
     if (sampleRateIn != SAMPLE_RATE) {
       // Resample using Lagrange interpolation into SAMPLE_RATE
       // MonoSample::interpolator->reset();
@@ -119,8 +175,6 @@ class MonoSample {
       // data and they're useless
       squashedFFT.push_back(fftData[adjustedIndex] / 1500);
     }
-    std::cout << "original size" << MAX_LENGTH * 2 << " "
-              << "compressed size: " << squashedFFT.size() << std::endl;
 
     // Envelope is downsampled to 1/4 its original size
     std::vector<float> squashedEnvelope;
@@ -151,17 +205,14 @@ class MonoSample {
   void computeEnvelope() {
     float m_a = pow(0.01, 1.0 / (50 * SAMPLE_RATE * 0.001));
     float m_r = pow(0.01, 1.0 / (200 * SAMPLE_RATE * 0.001));
-    std::cout << m_a << " - " << m_r << std::endl;
 
-    std::copy(data.begin(), data.end(), envelopeData.begin());
+    // std::copy(data.begin(), data.end(), envelopeData.begin());
 
     for (int i = 0; i < MAX_LENGTH; ++i) {
       if (envelopeData[i - 1] > data[i]) {
-        envelopeData[i] =
-            (1 - m_r) * std::abs(data[i]) + m_r * envelopeData[i - 1];
+        envelopeData[i] = (1 - m_r) * std::abs(data[i]) + m_r * envelopeData[i - 1];
       } else {
-        envelopeData[i] =
-            (1 - m_a) * std::abs(data[i]) + m_a * envelopeData[i - 1]; 
+        envelopeData[i] = (1 - m_a) * std::abs(data[i]) + m_a * envelopeData[i - 1];
       }
     }
 

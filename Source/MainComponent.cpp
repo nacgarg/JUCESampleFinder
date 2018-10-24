@@ -14,28 +14,56 @@
 //==============================================================================
 MainComponent::MainComponent() {
   setSize(300, 300);
-  // Ideally, MonoSamples are only used when loading files and performing analyssi. They
-  // produce a "comparison array" which is a compressed combination of FFT and Hilbert
+  // Ideally, MonoSamples are only used when loading files and performing analysis. They
+  // produce an Analysis which is a compressed combination of FFT and Hilbert
   // data. This data is then used for comparison instead of continuing to save the entire
   // MonoSample to save memory.
   const std::string sampleLibraryLocation =
-      "/run/media/nachi/KINGSTON/WAV/";  // For testing
+      "/run/media/nachi/KINGSTON/test/";  // For testing
   std::vector<std::shared_ptr<Analysis>> analyses;
-  DirectoryIterator iter(File(sampleLibraryLocation), true, "*.wav");
+  DirectoryIterator iter(File(sampleLibraryLocation), true, "*.wav,*.aif,*.mp3");
+  int i = 0;
   while (iter.next()) {
+    std::cout << iter.getEstimatedProgress() << "\r";
     File currFile(iter.getFile());
-    std::cout << "Loading " << currFile.getFileName() << std::endl;
-    auto s = new MonoSample(currFile);
-    std::shared_ptr<Analysis> a = s->computeAnalysis();
-    // for (int i = 0; i < 1000; i++) {
+    if (!currFile.existsAsFile()) continue;
+    File analysisFile(currFile.getFullPathName() + ".saf");
+    std::shared_ptr<Analysis> a;
+    if (analysisFile.existsAsFile()) {
+      // read analysis and push_back
+      auto ifp = analysisFile.createInputStream();
+      if (!ifp->openedOk()) {
+        continue;
+      }
+      a = Analysis::read(*ifp);
+    } else {
+      auto s = new MonoSample(currFile);
+      a = s->computeAnalysis();
+      auto ofp = analysisFile.createOutputStream();
+      if (!ofp->openedOk()) {
+        continue;
+      }
+      Analysis::serialize(*ofp, *a);
+      delete s;
+    }
+
     analyses.push_back(a);
-    // }
-    delete s;
+    i++;
   }
-  std::ofstream out_file("test.out");  // For debugging in gnuplot
-  std::copy(analyses[2]->analysisData.begin(), analyses[2]->analysisData.end(),
-            std::ostream_iterator<float>(out_file, "\n"));
-  std::cout << "Loaded " << analyses.size() << " samples." << std::endl;
+  std::cout << "\n\n";
+
+  // std::ofstream out_file("test.out");  // For debugging in gnuplot
+  // std::copy(analyses[2]->analysisData.begin(), analyses[2]->analysisData.end(),
+  //           std::ostream_iterator<float>(out_file, "\n"));
+  int input;
+  std::cout << "enter the index of the one you want to search for: " << std::endl;
+  std::cin >> input;
+  auto testAnalysis = analyses[input];
+  std::cout << "Finding sample most simliar to " << testAnalysis->filename << std::endl;
+  Analysis::sortAnalyses(analyses, *testAnalysis, 10);
+  for (int i = 0; i < 10; i++) {
+    std::cout << "found " << analyses[i]->filename << " ranked " << i << std::endl;
+  }
 }
 
 MainComponent::~MainComponent() {}
