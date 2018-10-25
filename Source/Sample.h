@@ -18,7 +18,7 @@
 
 static const int MAX_LENGTH = 1 << 16;
 static const int FFT_ORDER = log2(MAX_LENGTH);
-static const int SAMPLE_RATE = 44100;
+const int SAMPLE_RATE = 44100;
 static const int ANALYSIS_DATA_LENGTH = MAX_LENGTH / 4;
 
 struct Analysis {
@@ -91,6 +91,7 @@ class MonoSample {
     formatManager.registerBasicFormats();
     auto* reader = formatManager.createReaderFor(fileToLoad);
     if (reader == nullptr) {
+        std::cout << "somethinb ad" << std::endl;
       return;  // bad file or something
     }
     auto fileBuffer = new AudioBuffer<float>(2, reader->lengthInSamples);
@@ -139,7 +140,7 @@ class MonoSample {
   }
 
   void setSamples(std::vector<float> samples, int sampleRateIn) {
-    if (sampleRateIn != SAMPLE_RATE) {
+   if (sampleRateIn != SAMPLE_RATE) {
       // Resample using Lagrange interpolation into SAMPLE_RATE
       // MonoSample::interpolator->reset();
       std::array<float, MAX_LENGTH> resampled;
@@ -148,6 +149,7 @@ class MonoSample {
           samples.data(), resampled.begin(), samples.size());
       setSamples(resampled, SAMPLE_RATE);
     }
+  
     sampleRate = sampleRateIn;
     // Ensure that we only copy the data within MAX_LENGTH
     for (int i = 0; i < MAX_LENGTH; i++) {
@@ -283,6 +285,7 @@ class FileAnalyzer : public Thread {
 
       analyses.push_back(a);
     }
+      std::cout << "we done" << std::endl;
 
     // std::ofstream out_file("test.out");  // For debugging in gnuplot
     // std::copy(analyses[2]->analysisData.begin(), analyses[2]->analysisData.end(),

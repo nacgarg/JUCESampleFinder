@@ -27,10 +27,14 @@ class MainComponent : public Component, public FileDragAndDropTarget {
   //==============================================================================
   bool isInterestedInFileDrag(const StringArray& files);
   void filesDropped(const StringArray& files, int x, int y);
+    void fileDragEnter(const StringArray& files, int x, int y);
+    
 
  private:
   //==============================================================================
   // Your private member variables go here...
   TextButton librarylocationButton;
+    std::deque<std::shared_ptr<Analysis>> analyses;
+    FileAnalyzer* analyzeThread;
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

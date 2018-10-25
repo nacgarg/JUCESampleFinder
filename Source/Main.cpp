@@ -28,28 +28,12 @@ class SampleFinderApplication : public JUCEApplication {
     mainWindow.reset(new MainWindow(getApplicationName()));
     // TODO save sample library location(s) in ApplicationProperties
     // https://docs.juce.com/master/classApplicationProperties.html
-    const std::string sampleLibraryLocation =
-        "/home/nachi/code/JUCESampleFinder/test/";  // For testing
-
-    auto analyzeThread = new FileAnalyzer(sampleLibraryLocation);
-
-    analyzeThread->startThread();
-    analyzeThread->waitForThreadToExit(10000);
+    
     // TODO: Use Listeners to detect when analyzeThread finishes to delete analyzeThread
     // and set a bool to true that enables file dropping/opening. On file drop/open call a
     // function that starts a thread to do the stuff that's below
 
-    analyses = analyzeThread->analyses;
-
-    int input;
-    std::cout << "enter the index of the one you want to search for: " << std::endl;
-    std::cin >> input;
-    auto testAnalysis = analyses[input];
-    std::cout << "Finding sample most simliar to " << testAnalysis->filename << std::endl;
-    Analysis::sortAnalyses(analyses, *testAnalysis, 10);
-    for (int i = 0; i < 10; i++) {
-      std::cout << "found " << analyses[i]->filename << " ranked " << i << std::endl;
-    }
+    
   }
 
   void shutdown() override {
@@ -62,8 +46,6 @@ class SampleFinderApplication : public JUCEApplication {
   void systemRequestedQuit() override {
     // This is called when the app is being asked to quit: you can ignore this
     // request and let the app carry on running, or call quit() to allow the app to close.
-    analyzeThread->stopThread(100);
-    delete analyzeThread;
     quit();
   }
 
@@ -112,8 +94,7 @@ class SampleFinderApplication : public JUCEApplication {
 
  private:
   std::unique_ptr<MainWindow> mainWindow;
-  std::deque<std::shared_ptr<Analysis>> analyses;
-  FileAnalyzer* analyzeThread;
+
 };
 
 //==============================================================================
