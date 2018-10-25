@@ -13,6 +13,7 @@
 
 //==============================================================================
 MainComponent::MainComponent() {
+<<<<<<< HEAD
     setSize(300, 300);
     const std::string sampleLibraryLocation =
     "/Users/SamSmith/Desktop/test";  // For testing
@@ -21,6 +22,10 @@ MainComponent::MainComponent() {
 
     analyzeThread->run();
 //    analyzeThread->waitForThreadToExit(10000);
+=======
+  setSize(300, 300);
+  addAndMakeVisible(librarylocationButton);
+>>>>>>> 0f3aa593955e1be533d320858621182df415c8f7
 }
 
 MainComponent::~MainComponent() {
@@ -42,7 +47,7 @@ void MainComponent::resized() {
   // This is called when the MainComponent is resized.
   // If you add any child components, this is where you should
   // update their positions.
-  // sampleDropTarget.setBounds(50, 50, getWidth() - 100, getHeight() - 100);
+  librarylocationButton.setBounds(50, 50, getWidth() - 100, getHeight() - 100);
 }
 
 bool MainComponent::isInterestedInFileDrag(const StringArray& files) {
