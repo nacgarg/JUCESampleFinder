@@ -14,6 +14,7 @@
 //==============================================================================
 MainComponent::MainComponent() {
   setSize(300, 300);
+  addAndMakeVisible(librarylocationButton);
 }
 
 MainComponent::~MainComponent() {}
@@ -33,7 +34,7 @@ void MainComponent::resized() {
   // This is called when the MainComponent is resized.
   // If you add any child components, this is where you should
   // update their positions.
-  // sampleDropTarget.setBounds(50, 50, getWidth() - 100, getHeight() - 100);
+  librarylocationButton.setBounds(50, 50, getWidth() - 100, getHeight() - 100);
 }
 
 bool MainComponent::isInterestedInFileDrag(const StringArray& files) {
