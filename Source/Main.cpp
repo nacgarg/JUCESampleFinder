@@ -28,12 +28,6 @@ class SampleFinderApplication : public JUCEApplication {
     mainWindow.reset(new MainWindow(getApplicationName()));
     // TODO save sample library location(s) in ApplicationProperties
     // https://docs.juce.com/master/classApplicationProperties.html
-    
-    // TODO: Use Listeners to detect when analyzeThread finishes to delete analyzeThread
-    // and set a bool to true that enables file dropping/opening. On file drop/open call a
-    // function that starts a thread to do the stuff that's below
-
-    
   }
 
   void shutdown() override {

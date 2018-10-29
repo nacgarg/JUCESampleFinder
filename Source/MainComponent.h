@@ -9,14 +9,14 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "Sample.h"
+#include "SampleProcessor.h"
 
 //==============================================================================
 /*
     This component lives inside our window, and this is where you should put all
     your controls and content.
 */
-class MainComponent : public Component, public FileDragAndDropTarget {
+class MainComponent : public Component, public FileDragAndDropTarget, public Button::Listener {
  public:
   //==============================================================================
   MainComponent();
@@ -25,16 +25,16 @@ class MainComponent : public Component, public FileDragAndDropTarget {
   void resized() override;
 
   //==============================================================================
-  bool isInterestedInFileDrag(const StringArray& files);
-  void filesDropped(const StringArray& files, int x, int y);
-    void fileDragEnter(const StringArray& files, int x, int y);
-    
+  bool isInterestedInFileDrag(const StringArray& files) override;
+  void filesDropped(const StringArray& files, int x, int y) override;
+  void fileDragEnter(const StringArray& files, int x, int y) override;
+
+  void buttonClicked(Button*) override;
 
  private:
   //==============================================================================
   // Your private member variables go here...
-  TextButton librarylocationButton;
-    std::deque<std::shared_ptr<Analysis>> analyses;
-    FileAnalyzer* analyzeThread;
+  ImageButton* settingsButton;
+  SampleProcessor sampleProcessor;
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

@@ -9,7 +9,6 @@
 */
 #include <math.h>
 #include <algorithm>
-#include <deque>
 #include <tuple>
 #include <vector>
 #include "../JuceLibraryCode/JuceHeader.h"
@@ -43,7 +42,7 @@ struct Analysis {
     return currScore / ANALYSIS_DATA_LENGTH;
   }
 
-  static void sortAnalyses(std::deque<std::shared_ptr<Analysis>>& arr,
+  static void sortAnalyses(std::vector<std::shared_ptr<Analysis>>& arr,
                            Analysis& reference, int num) {
     std::vector<std::tuple<float, std::shared_ptr<Analysis>>> scores;
     for (auto el : arr) {
@@ -91,7 +90,7 @@ class MonoSample {
     formatManager.registerBasicFormats();
     auto* reader = formatManager.createReaderFor(fileToLoad);
     if (reader == nullptr) {
-        std::cout << "somethinb ad" << std::endl;
+      std::cout << "somethinb ad" << std::endl;
       return;  // bad file or something
     }
     auto fileBuffer = new AudioBuffer<float>(2, reader->lengthInSamples);
@@ -140,7 +139,7 @@ class MonoSample {
   }
 
   void setSamples(std::vector<float> samples, int sampleRateIn) {
-   if (sampleRateIn != SAMPLE_RATE) {
+    if (sampleRateIn != SAMPLE_RATE) {
       // Resample using Lagrange interpolation into SAMPLE_RATE
       // MonoSample::interpolator->reset();
       std::array<float, MAX_LENGTH> resampled;
@@ -149,7 +148,7 @@ class MonoSample {
           samples.data(), resampled.begin(), samples.size());
       setSamples(resampled, SAMPLE_RATE);
     }
-  
+
     sampleRate = sampleRateIn;
     // Ensure that we only copy the data within MAX_LENGTH
     for (int i = 0; i < MAX_LENGTH; i++) {
@@ -241,57 +240,4 @@ class MonoSample {
   std::array<float, MAX_LENGTH * 2> envelopeData;
   std::string filename;
   AudioFormatManager formatManager;
-};
-
-class FileAnalyzer : public Thread {
- public:
-  std::deque<std::shared_ptr<Analysis>> analyses;
-  FileAnalyzer(std::string dir) : Thread("FileAnalyzer_" + dir), sampleDirectory(dir) {}
-  void run() {
-    // Ideally, MonoSamples are only used when loading files and performing analysis.
-    // They produce an Analysis which is a compressed combination of FFT and Envelope
-    // data. This data is then used for comparison instead of continuing to save the
-    // entire MonoSample to save memory.
-
-    DirectoryIterator iter(File(sampleDirectory), true, "*.wav,*.aif,*.mp3");
-    while (iter.next()) {
-      std::cout << iter.getEstimatedProgress() << "\r";
-      File currFile(iter.getFile());
-      if (!currFile.existsAsFile()) continue;
-      File analysisFile(currFile.getFullPathName() + ".saf");
-      std::shared_ptr<Analysis> a;
-      if (analysisFile.existsAsFile()) {
-        // read analysis from file
-        auto ifp = analysisFile.createInputStream();
-        if (ifp->failedToOpen()) {
-          // TODO actually have exceptions and stuff
-          std::cerr << "Couldn't open analysis file for reading" << std::endl;
-          continue;
-        }
-        a = Analysis::read(*ifp);
-
-        delete ifp;
-      } else {
-        auto s = new MonoSample(currFile);
-        a = s->computeAnalysis();
-        auto ofp = analysisFile.createOutputStream();
-        if (!ofp->openedOk()) {
-          continue;
-        }
-        Analysis::serialize(*ofp, *a);
-        delete ofp;
-        delete s;
-      }
-
-      analyses.push_back(a);
-    }
-      std::cout << "we done" << std::endl;
-
-    // std::ofstream out_file("test.out");  // For debugging in gnuplot
-    // std::copy(analyses[2]->analysisData.begin(), analyses[2]->analysisData.end(),
-    //           std::ostream_iterator<float>(out_file, "\n"));
-  }
-
- private:
-  std::string sampleDirectory;
 };
