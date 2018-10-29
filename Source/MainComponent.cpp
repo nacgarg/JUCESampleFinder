@@ -59,17 +59,20 @@ bool MainComponent::isInterestedInFileDrag(const StringArray &files) {
                                  files[0].endsWith(".aif"));
 }
 
+void MainComponent::searchCallback(std::vector<std::shared_ptr<Analysis>> results) {
+    std::cout << "searchCallback" << std::endl;
+    std::ostringstream str_results;
+    str_results << "found similar: " << std::endl;
+    for (const std::shared_ptr<Analysis> &a : results) {
+        str_results << a->filename << std::endl;
+    }
+    AlertWindow::showMessageBox(AlertWindow::InfoIcon, "Results", str_results.str(), "cool");
+}
+
 void MainComponent::filesDropped(const StringArray &files, int x, int y) {
     // TODO Handle incoming file
     std::cout << "file dropped" << std::endl;
-    for (int i = 0; i < files.size(); i++) {
-        std::cout << "here's a file lmao" << files[i] << std::endl;
-        auto out = sampleProcessor.find_similar(File(files[i]), 10);
-        std::cout << "found similar: " << std::endl;
-        for (std::shared_ptr<Analysis> a : out) {
-            std::cout << a->filename << std::endl;
-        }
-    }
+    sampleProcessor.find_similar(File(files[0]), 10, searchCallback);
 }
 
 void MainComponent::fileDragEnter(const StringArray &files, int x, int y) {
@@ -81,12 +84,12 @@ void MainComponent::buttonClicked(Button *btn) {
     if (btn == settingsButton) {
         std::cout << "Settings opened" << std::endl;
         FileChooser libraryChooser("Please select your sample folder",
-                              File::getSpecialLocation(File::userHomeDirectory),
-                              "*");
+                                   File::getSpecialLocation(File::userHomeDirectory),
+                                   "*");
         if (libraryChooser.browseForDirectory()) {
             File libraryDir(libraryChooser.getResult());
             // TODO: Make it save settings in the PropertyFile thingy
-           sampleProcessor.add_library_location(libraryDir);
+            sampleProcessor.set_library_location({libraryDir});
             if (sampleProcessor.library_exists()) {
                 sampleProcessor.analyze_files();
             }
