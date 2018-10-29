@@ -36,6 +36,8 @@ class MainComponent : public Component, public FileDragAndDropTarget, public But
   // Your private member variables go here...
   ImageButton* settingsButton;
   SampleProcessor sampleProcessor;
+  ProgressBar* searchProgressBar;
+  double analysis_progress;
   static void searchCallback(std::vector<std::shared_ptr<Analysis>> results);
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

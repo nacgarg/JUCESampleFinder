@@ -42,10 +42,10 @@ bool SampleProcessor::library_exists() {
     return allExist;
 };
 
-void SampleProcessor::analyze_files() {
+void SampleProcessor::analyze_files(double& progress) {
     delete analysisThread;
     analyzed = false;
-    analysisThread = new FileAnalyzer(library_location, &analysis_data);
+    analysisThread = new FileAnalyzer(library_location, &analysis_data, progress);
     analysisThread->addListener(this);
     analysisThread->startThread();
 }
@@ -55,8 +55,7 @@ void SampleProcessor::exitSignalSent() {
     if (Thread::getCurrentThread()->getThreadId() == analysisThread->getThreadId()) {
         // analysis complete!
         analyzed = true;
-    }
-    else if (Thread::getCurrentThread()->getThreadId() == searchThread->getThreadId()) {
+    } else if (Thread::getCurrentThread()->getThreadId() == searchThread->getThreadId()) {
         // search complete!
         std::cout << "Calling callback now" << std::endl;
         searchCallback(searchThread->results);
@@ -76,9 +75,13 @@ void SampleProcessor::find_similar(File similar_to,
     searchThread->startThread();
 }
 
+double &SampleProcessor::get_search_progress() {
+    return analysisThread->get_progress();
+}
+
 FileAnalyzer::FileAnalyzer(std::vector<File> dirs,
-                           std::vector<std::shared_ptr<Analysis>> *analysis_in)
-        : Thread("FileAnalyzer"), library_location(dirs), analysis_data(analysis_in) {}
+                           std::vector<std::shared_ptr<Analysis>> *analysis_in, double& p)
+        : Thread("FileAnalyzer"), progress(p), library_location(std::move(dirs)), analysis_data(analysis_in) {}
 
 void FileAnalyzer::run() {
     // Ideally, MonoSamples are only used when loading files and performing analysis.
@@ -89,6 +92,7 @@ void FileAnalyzer::run() {
         DirectoryIterator iter(dir, true, "*.wav,*.aif,*.mp3");
         while (iter.next()) {
             std::cout << iter.getEstimatedProgress() << "\r";
+            progress = iter.getEstimatedProgress();
             File currFile(iter.getFile());
             if (!currFile.existsAsFile()) continue;
             File analysisFile(currFile.getFullPathName() + ".saf");
@@ -121,6 +125,10 @@ void FileAnalyzer::run() {
     }
     std::cout << "Finished analysis" << std::endl;
     signalThreadShouldExit();
+}
+
+double &FileAnalyzer::get_progress() {
+    return progress;
 }
 
 FileSearcher::FileSearcher(std::vector<std::shared_ptr<Analysis>> *analysis_in,

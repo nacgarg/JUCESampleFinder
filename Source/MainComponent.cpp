@@ -24,15 +24,19 @@ MainComponent::MainComponent() {
 //    settingsButton->setTopLeftPosition(10, 10);
     settingsButton->addListener(this);
     sampleProcessor.set_library_location({"/home/nachi/code/JUCESampleFinder/test"});
+    double& progress_ref = analysis_progress;
+    searchProgressBar = new ProgressBar(progress_ref);
     setSize(300, 300);
     addAndMakeVisible(settingsButton);
+    addAndMakeVisible(searchProgressBar);
     if (sampleProcessor.library_exists()) {
-        sampleProcessor.analyze_files();
+        sampleProcessor.analyze_files(progress_ref);
     }
 }
 
 MainComponent::~MainComponent() {
     delete settingsButton;
+    delete searchProgressBar;
 }
 
 //==============================================================================
@@ -50,7 +54,9 @@ void MainComponent::resized() {
     // This is called when the MainComponent is resized.
     // If you add any child components, this is where you should
     // update their positions.
-    settingsButton->setBounds(getWidth() - 20, getWidth() - 20, 20, 20);
+    settingsButton->setBounds(getWidth() - 25, getWidth() - 25, 20, 20);
+    searchProgressBar->setBounds(25, 200, getWidth() - 50, 20);
+
 }
 
 bool MainComponent::isInterestedInFileDrag(const StringArray &files) {
@@ -91,7 +97,8 @@ void MainComponent::buttonClicked(Button *btn) {
             // TODO: Make it save settings in the PropertyFile thingy
             sampleProcessor.set_library_location({libraryDir});
             if (sampleProcessor.library_exists()) {
-                sampleProcessor.analyze_files();
+                double& progress_ref = analysis_progress;
+                sampleProcessor.analyze_files(progress_ref);
             }
         }
     }

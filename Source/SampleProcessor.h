@@ -17,13 +17,16 @@
 class FileAnalyzer : public Thread {
 public:
     FileAnalyzer(std::vector<File> dirs,
-                 std::vector<std::shared_ptr<Analysis>> *analysis_in);
+                 std::vector<std::shared_ptr<Analysis>> *analysis_in, double& p);
 
     void run() override;
+
+    double &get_progress();
 
 private:
     std::vector<File> library_location;
     std::vector<std::shared_ptr<Analysis>> *analysis_data;
+    double &progress;
 };
 
 class FileSearcher : public Thread {
@@ -69,7 +72,9 @@ public:
     // ================
 
     // PROCESSING
-    void analyze_files();
+    void analyze_files(double& progress);
+
+    double &get_search_progress();
 
     // Start a thread to analyze the files in library_location. If the file is innacessible
     // for any reason, return false. Create .saf data files if they don't already exist.
@@ -78,7 +83,8 @@ public:
 
     // Start a thread to search through analysis_data to find the top  num_results similar
     // files.
-    void exitSignalSent() override;
+    void exitSignalSent()
+    override;
 
 private:
     std::vector<File> library_location;
