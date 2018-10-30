@@ -21,9 +21,7 @@ MainComponent::MainComponent() {
                               settingsImage, 0.5f, Colours::transparentBlack,
                               0.5f);
     settingsButton->setTooltip("Access SampleFinder settings");
-//    settingsButton->setTopLeftPosition(10, 10);
     settingsButton->addListener(this);
-    sampleProcessor.set_library_location({"/home/nachi/code/JUCESampleFinder/test"});
     double& progress_ref = analysis_progress;
     searchProgressBar = new ProgressBar(progress_ref);
     setSize(300, 300);
@@ -31,6 +29,8 @@ MainComponent::MainComponent() {
     addAndMakeVisible(searchProgressBar);
     if (sampleProcessor.library_exists()) {
         sampleProcessor.analyze_files(progress_ref);
+    } else {
+        AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error", "Could not find sample library.\nPlease set the library location and try again.");
     }
 }
 
@@ -56,7 +56,6 @@ void MainComponent::resized() {
     // update their positions.
     settingsButton->setBounds(getWidth() - 25, getWidth() - 25, 20, 20);
     searchProgressBar->setBounds(25, 200, getWidth() - 50, 20);
-
 }
 
 bool MainComponent::isInterestedInFileDrag(const StringArray &files) {
@@ -99,6 +98,8 @@ void MainComponent::buttonClicked(Button *btn) {
             if (sampleProcessor.library_exists()) {
                 double& progress_ref = analysis_progress;
                 sampleProcessor.analyze_files(progress_ref);
+            } else {
+                AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error", "Could not find sample library at " + sampleProcessor.get_library_location()[0].getFullPathName() + "\nPlease set the library location and try again.");
             }
         }
     }
