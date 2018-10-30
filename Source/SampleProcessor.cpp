@@ -37,7 +37,7 @@ bool SampleProcessor::library_exists() {
     if (library_location.empty()) return false;
     bool allExist = true;
     for (const File &f : library_location) {
-        if (not f.isDirectory()) allExist = false;
+        if (!f.isDirectory()) allExist = false;
     }
     return allExist;
 };
@@ -48,6 +48,7 @@ void SampleProcessor::analyze_files(double& progress) {
     analysisThread = new FileAnalyzer(library_location, &analysis_data, progress);
     analysisThread->addListener(this);
     analysisThread->startThread();
+	std::cout << "started analysis thread" << std::endl;
 }
 
 void SampleProcessor::exitSignalSent() {
@@ -84,6 +85,7 @@ FileAnalyzer::FileAnalyzer(std::vector<File> dirs,
         : Thread("FileAnalyzer"), progress(p), library_location(std::move(dirs)), analysis_data(analysis_in) {}
 
 void FileAnalyzer::run() {
+	std::cout << "Running" << std::endl;
     // Ideally, MonoSamples are only used when loading files and performing analysis.
     // They produce an Analysis which is a compressed combination of FFT and Envelope
     // data. This data is then used for comparison instead of continuing to save the
@@ -93,13 +95,14 @@ void FileAnalyzer::run() {
         while (iter.next()) {
             std::cout << iter.getEstimatedProgress() << "\r";
             progress = iter.getEstimatedProgress();
-            File currFile(iter.getFile());
-            if (!currFile.existsAsFile()) continue;
-            File analysisFile(currFile.getFullPathName() + ".saf");
+            File* currFile = new File(iter.getFile());
+            if (!currFile->existsAsFile()) continue;
+            File* analysisFile = new File(currFile->getFullPathName() + ".saf");
             std::shared_ptr<Analysis> a;
-            if (analysisFile.existsAsFile()) {
+            if (analysisFile->existsAsFile()) {
+				delete currFile;
                 // read analysis from file
-                auto ifp = analysisFile.createInputStream();
+                auto ifp = analysisFile->createInputStream();
                 if (ifp->failedToOpen()) {
                     // TODO actually have exceptions and stuff
                     std::cerr << "Couldn't open analysis file for reading" << std::endl;
@@ -109,16 +112,19 @@ void FileAnalyzer::run() {
 
                 delete ifp;
             } else {
-                MonoSample s(currFile);
-                a = s.computeAnalysis();
-                auto ofp = analysisFile.createOutputStream();
-                if (!ofp->openedOk()) {
+                auto s = new MonoSample(*currFile);
+                a = s->computeAnalysis();
+				delete s;
+                auto ofp = analysisFile->createOutputStream();
+				
+                if (!ofp || ofp->getStatus()) {
                     std::cerr << "Couldn't open analysis file for writing" << std::endl;
                     continue;
                 }
                 Analysis::serialize(*ofp, *a);
                 delete ofp;
             }
+			delete analysisFile;
 
             analysis_data->push_back(a);
         }

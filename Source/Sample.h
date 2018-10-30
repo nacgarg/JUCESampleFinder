@@ -93,9 +93,9 @@ class MonoSample {
       std::cout << "somethinb ad" << std::endl;
       return;  // bad file or something
     }
-    auto fileBuffer = new AudioBuffer<float>(2, reader->lengthInSamples);
+    auto fileBuffer = new AudioBuffer<float>(2, MAX_LENGTH);
     reader->read(fileBuffer, 0, fileBuffer->getNumSamples(), static_cast<juce::int64>(0),
-                 true, false);
+                 true, true);
 
     int sampleRate = reader->sampleRate;
     filename = fileToLoad.getFileName().toStdString();
@@ -138,15 +138,16 @@ class MonoSample {
     setSamples(v, sampleRate);
   }
 
-  void setSamples(std::vector<float> samples, int sampleRateIn) {
+  void setSamples(std::vector<float> &samples, const int &sampleRateIn) {
     if (sampleRateIn != SAMPLE_RATE) {
       // Resample using Lagrange interpolation into SAMPLE_RATE
       // MonoSample::interpolator->reset();
-      std::array<float, MAX_LENGTH> resampled;
+		auto resampled = new std::array<float, MAX_LENGTH>;
       MonoSample::interpolator->process(
           static_cast<double>(sampleRateIn) / static_cast<double>(SAMPLE_RATE),
-          samples.data(), resampled.begin(), samples.size());
-      setSamples(resampled, SAMPLE_RATE);
+          samples.data(), resampled->data(), MAX_LENGTH);
+      setSamples(*resampled, SAMPLE_RATE);
+	  delete resampled;
     }
 
     sampleRate = sampleRateIn;
@@ -207,7 +208,7 @@ class MonoSample {
       return;
     }
     std::copy(data.begin(), data.end(), fftData.begin());
-    forwardFFT->performFrequencyOnlyForwardTransform(fftData.begin());
+    forwardFFT->performFrequencyOnlyForwardTransform(fftData.data());
     fftExists = true;
   }
 
@@ -217,7 +218,7 @@ class MonoSample {
 
     // std::copy(data.begin(), data.end(), envelopeData.begin());
 
-    for (int i = 0; i < MAX_LENGTH; ++i) {
+    for (int i = 1; i < MAX_LENGTH; ++i) {
       if (envelopeData[i - 1] > data[i]) {
         envelopeData[i] = (1 - m_r) * std::abs(data[i]) + m_r * envelopeData[i - 1];
       } else {
