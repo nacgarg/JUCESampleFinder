@@ -143,7 +143,7 @@ void FileAnalyzer::run() {
 			if (ofp.failedToOpen()) {
 				std::cerr << "Couldn't open analysis file for writing" << std::endl;
 				delete analysisFile;
-				AlertWindow::showMessageBox(AlertWindow::AlertIconType::WarningIcon, "File I/O Error", "Couldn't open file for writing", "rip");
+				//AlertWindow::showMessageBox(AlertWindow::AlertIconType::WarningIcon, "File I/O Error", "Couldn't open file for writing", "rip");
 				continue;
 			}
 			Analysis::serialize(ofp, *a);

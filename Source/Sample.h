@@ -111,7 +111,7 @@ class MonoSample {
     filename = fileToLoad.getFullPathName().toStdString();
     std::vector<float> temp;
     temp.clear();
-    int lengthToRead = MAX_LENGTH;
+    int lengthToRead = MAX_LENGTH * sampleRate / SAMPLE_RATE;
     if (fileBuffer->getNumSamples() < lengthToRead) {
       lengthToRead = fileBuffer->getNumSamples();
     }
@@ -153,6 +153,9 @@ class MonoSample {
       // Resample using Lagrange interpolation into SAMPLE_RATE
       // MonoSample::interpolator->reset();
 		auto resampled = new std::array<float, MAX_LENGTH>;
+		while (samples.size() <= MAX_LENGTH * sampleRateIn / SAMPLE_RATE) {
+			samples.push_back(0.0f);
+		}
       MonoSample::interpolator->process(
           static_cast<double>(sampleRateIn) / static_cast<double>(SAMPLE_RATE),
           samples.data(), resampled->data(), MAX_LENGTH);
