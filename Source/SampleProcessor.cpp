@@ -12,7 +12,7 @@
 
 SampleProcessor::SampleProcessor() { std::cout << "Hi" << std::endl; }
 
-SampleProcessor::~SampleProcessor() { std::cout << "Bye" << std::endl; }
+SampleProcessor::~SampleProcessor() { std::cout << "Bye" << std::endl; delete analysisThread; delete searchThread; }
 
 std::vector<File> SampleProcessor::get_library_location() {
     return this->library_location;
@@ -104,14 +104,14 @@ void FileAnalyzer::run() {
             std::shared_ptr<Analysis> a;
 			if (analysisFile->existsAsFile()) {
 				// read analysis from file
-				auto ifp = analysisFile->createInputStream();
-				if (ifp->failedToOpen()) {
+				FileInputStream ifp(*analysisFile);
+				if (ifp.failedToOpen()) {
 					// TODO actually have exceptions and stuff
 					std::cerr << "Couldn't open analysis file for reading" << std::endl;
 					AlertWindow::showMessageBox(AlertWindow::AlertIconType::WarningIcon, "File I/O Error", "Couldn't read file", "rip");
 					continue;
 				}
-				a = Analysis::read(*ifp);
+				a = Analysis::read(ifp);
 				if (!a) {
 					AlertWindow::showMessageBox(AlertWindow::AlertIconType::WarningIcon, "Analysis File Error", "File is incorrectly formatted", "rip");
 				}

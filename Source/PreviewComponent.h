@@ -34,8 +34,9 @@
     Describe your class and how it works here!
                                                                     //[/Comments]
 */
-class PreviewComponent  : public AudioAppComponent,
-                          public ChangeListener
+class PreviewComponent  : public Component,
+                          public ChangeListener,
+                          public AudioSource
 {
 public:
     //==============================================================================
@@ -73,6 +74,8 @@ private:
 	void changeState(TransportState newState);
 	TransportState state;
 	std::string filename;
+	void playButtonClicked();
+	void stopButtonClicked();
     //[/UserVariables]
 
     //==============================================================================

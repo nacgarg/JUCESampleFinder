@@ -28,6 +28,7 @@
 
 //==============================================================================
 PreviewComponent::PreviewComponent (std::shared_ptr<Analysis> a)
+    : state(Stopped)
 {
     //[Constructor_pre] You can add your own custom stuff here..
 	const MessageManagerLock mml;
@@ -43,14 +44,14 @@ PreviewComponent::PreviewComponent (std::shared_ptr<Analysis> a)
 	playButton.setImages(true, true, true,
 		playImage, 0.9f, Colours::black,
 		playImage, 1.0f, Colours::black,
-		playImage, 0.9f, Colours::black);
+		playImage, 0.9f, Colours::black, 0.0f);
 
 	Image stopImage = ImageCache::getFromMemory(BinaryData::stop_icon_png, BinaryData::stop_icon_pngSize);
 
 	stopButton.setImages(true, true, true,
 		stopImage, 0.9f, Colours::black,
 		stopImage, 1.0f, Colours::black,
-		stopImage, 0.9f, Colours::black);
+		stopImage, 0.9f, Colours::black, 0.0f);
     //[/UserPreSize]
 
     setSize (600, 400);
@@ -69,14 +70,10 @@ PreviewComponent::PreviewComponent (std::shared_ptr<Analysis> a)
 	}
 	Component::addAndMakeVisible(&playButton);
 	playButton.setButtonText("Play");
-	playButton.onClick = [this] { changeState(Starting); };
-	playButton.setColour(TextButton::buttonColourId, Colours::green);
-	playButton.setEnabled(false);
+	playButton.onClick = [this] {playButtonClicked(); };
 	Component::addAndMakeVisible(&stopButton);
 	stopButton.setButtonText("Stop");
-	stopButton.onClick = [this] { changeState(Stopping); };
-	stopButton.setColour(TextButton::buttonColourId, Colours::red);
-	stopButton.setEnabled(false);
+	stopButton.onClick = [this] { stopButtonClicked(); };
     //[/Constructor]
 }
 
@@ -88,6 +85,7 @@ PreviewComponent::~PreviewComponent()
 
 
     //[Destructor]. You can add your own custom destruction code here..
+	releaseResources();
     //[/Destructor]
 }
 
@@ -158,10 +156,21 @@ void PreviewComponent::changeListenerCallback(ChangeBroadcaster* source) {
 	}
 }
 
+void PreviewComponent::playButtonClicked() {
+	changeState(Starting);
+}
+
+void PreviewComponent::stopButtonClicked()
+{
+	changeState(Stopping);
+
+}
+
 void PreviewComponent::changeState(TransportState newState) {
 	if (state != newState)
 	{
 		state = newState;
+		std::cerr << "state " << state << std::endl;
 		switch (state)
 		{
 		case Stopped:                           // [3]
@@ -195,8 +204,8 @@ void PreviewComponent::changeState(TransportState newState) {
 BEGIN_JUCER_METADATA
 
 <JUCER_COMPONENT documentType="Component" className="PreviewComponent" componentName=""
-                 parentClasses="public AudioAppComponent, public ChangeListener"
-                 constructorParams="std::shared_ptr&lt;Analysis&gt; a" variableInitialisers=""
+                 parentClasses="public Component, public ChangeListener, public AudioSource"
+                 constructorParams="std::shared_ptr&lt;Analysis&gt; a" variableInitialisers="state(Stopped)"
                  snapPixels="8" snapActive="1" snapShown="1" overlayOpacity="0.33"
                  fixedSize="0" initialWidth="600" initialHeight="400">
   <METHODS>

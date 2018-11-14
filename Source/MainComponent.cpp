@@ -19,7 +19,7 @@ MainComponent::MainComponent() : appProps(new ApplicationProperties) {
                               settingsImage, 0.9f, Colours::transparentBlack,
                               settingsImage, 1.0f, Colours::transparentBlack,
                               settingsImage, 0.5f, Colours::transparentBlack,
-                              0.5f);
+                              0.0f);
     settingsButton->setTooltip("Access SampleFinder settings");
     settingsButton->addListener(this);
     double& progress_ref = analysis_progress;
@@ -53,6 +53,9 @@ void MainComponent::paint(Graphics &g) {
     g.setFont(Font(16.0f));
     g.setColour(Colours::black);
     g.drawText("Drop file", getLocalBounds(), Justification::centred, true);
+	if (resultsComponent) {
+		g.drawText("Drop file", getLocalBounds(), Justification::centredBottom, true);
+	}
 }
 
 void MainComponent::resized() {
@@ -62,8 +65,10 @@ void MainComponent::resized() {
 	const MessageManagerLock mml;
     settingsButton->setBounds(getWidth() - 25, getWidth() - 25, 20, 20);
     searchProgressBar->setBounds(25, 200, getWidth() - 50, 20);
+	auto r = getLocalBounds();
+	r.removeFromBottom(20);
 	if (resultsComponent) {
-		resultsComponent->setBounds(getLocalBounds());
+		resultsComponent->setBounds(r);
 	}
 }
 
@@ -81,15 +86,18 @@ void MainComponent::searchCallback(std::vector<std::shared_ptr<Analysis>> result
         str_results << a->filename << std::endl;
     }
 	MainComponent * self = static_cast<MainComponent*>(this_pointer);
-	const MessageManagerLock mml(Thread::getCurrentThread());
-	delete self->resultsComponent;
+	{
+		const MessageManagerLock mml;
+		delete self->resultsComponent;
+	}
 	self->resultsComponent = new ResultsPreviewComponent(results);
 	{
 		const MessageManagerLock mml;
 		self->addAndMakeVisible(self->resultsComponent);
+		self->addAndMakeVisible(self->settingsButton);
 	}
 	self->resized();
-    AlertWindow::showMessageBox(AlertWindow::InfoIcon, "Results", str_results.str(), "cool");
+    //AlertWindow::showMessageBox(AlertWindow::InfoIcon, "Results", str_results.str(), "cool");
 }
 
 void MainComponent::filesDropped(const StringArray &files, int x, int y) {
@@ -106,9 +114,14 @@ void MainComponent::buttonClicked(Button *btn) {
     std::cout << "button clicked" << std::endl;
     if (btn == settingsButton) {
         std::cout << "Settings opened" << std::endl;
+		File searchDir = File::getSpecialLocation(File::userHomeDirectory);
+		if (libraryLocation.exists()) {
+			searchDir = libraryLocation;
+		}
         FileChooser libraryChooser("Please select your sample folder",
-                                   File::getSpecialLocation(File::userHomeDirectory),
+                                  searchDir,
                                    "*");
+		
         if (libraryChooser.browseForDirectory()) {
             File libraryDir(libraryChooser.getResult());
             // TODO: Allow multiple library folders
@@ -120,6 +133,7 @@ void MainComponent::buttonClicked(Button *btn) {
 void MainComponent::setLibraryLocation(File newLibraryLocation) {
 	sampleProcessor.set_library_location({ newLibraryLocation });
 	libraryLocation = newLibraryLocation;
+	delete resultsComponent;
 	if (sampleProcessor.library_exists()) {
 		// set propfile value
 		propFile->setValue(PROP_FILE_LIBRARY_LOCATION_KEY, libraryLocation.getFullPathName());
