@@ -18,7 +18,8 @@
 static const int MAX_LENGTH = 1 << 16;
 static const int FFT_ORDER = log2(MAX_LENGTH);
 const int SAMPLE_RATE = 44100;
-static const int ANALYSIS_DATA_LENGTH = MAX_LENGTH / 4;
+static const int ANALYSIS_DATA_LENGTH = MAX_LENGTH / 8;
+static const int ANALYSIS_FILE_VERSION = 1;
 
 struct Analysis {
   // Simplified struct to only hold minimal data in memory
@@ -48,6 +49,9 @@ struct Analysis {
     for (auto el : arr) {
       scores.push_back(std::make_tuple(compareAnalyses(*el, reference), el));
     }
+	if (scores.size() < num) {
+		num = scores.size();
+	}
     std::partial_sort(scores.begin(), scores.begin() + num, scores.end());
     for (size_t i = 0; i < arr.size(); i++) {
       arr[i] = std::get<1>(scores[i]);
@@ -56,6 +60,7 @@ struct Analysis {
 
   static void serialize(OutputStream& os, Analysis& a) {
     auto* gzip = new GZIPCompressorOutputStream(os, 2);
+	gzip->writeInt(ANALYSIS_FILE_VERSION);
     gzip->writeString(a.filename);
     gzip->write(reinterpret_cast<const char*>(a.analysisData.data()),
                 ANALYSIS_DATA_LENGTH * sizeof(float));
@@ -66,6 +71,11 @@ struct Analysis {
   static std::shared_ptr<Analysis> read(InputStream& is) {
     auto* gzip = new GZIPDecompressorInputStream(is);
     std::string filename;
+	int version = gzip->readInt();
+	if (version != ANALYSIS_FILE_VERSION) {
+		delete gzip;
+		return nullptr;
+	}
     filename = gzip->readString().toStdString();
     Analysis tmp = {filename};
     gzip->read(reinterpret_cast<char*>(tmp.analysisData.data()),
@@ -98,7 +108,7 @@ class MonoSample {
                  true, true);
 
     int sampleRate = reader->sampleRate;
-    filename = fileToLoad.getFileName().toStdString();
+    filename = fileToLoad.getFullPathName().toStdString();
     std::vector<float> temp;
     temp.clear();
     int lengthToRead = MAX_LENGTH;
@@ -176,14 +186,16 @@ class MonoSample {
     computeFFT();
     computeEnvelope();
 
-    const int fftLength = MAX_LENGTH * 3 / 16;
-    // FFT is squashed into 3/4 the space of the Analysis struct.
+    const int fftLength = ANALYSIS_DATA_LENGTH/2;
+    // FFT is squashed into 1/2 the space of the Analysis struct.
     std::vector<float> squashedFFT;
+	const int fftSquishFactor = (MAX_LENGTH / 2 / fftLength);
     for (double i = 0; i < fftLength; i += 1) {
-      int adjustedIndex = static_cast<int>(pow(MAX_LENGTH / 2, i / (fftLength)));
-      // TODO ignore frequencies from 0-20hz, because right now they take like half the
-      // data and they're useless
-      squashedFFT.push_back(fftData[adjustedIndex] / 1500);
+		int min = 100;
+		int max = MAX_LENGTH / 2;
+		int logIndex = static_cast<int>(min*pow(max / min, fftSquishFactor*i / max));
+		int squashedIndex = logIndex / fftSquishFactor;
+      squashedFFT.push_back(fftData[squashedIndex] / 1500);
     }
 
     // Envelope is downsampled to 1/4 its original size
@@ -194,8 +206,8 @@ class MonoSample {
     squashedFFT.insert(squashedFFT.end(), squashedEnvelope.begin(),
                        squashedEnvelope.end());
 
-    Analysis a = {getFilename(), std::array<float, MAX_LENGTH / 4>()};
-    std::copy_n(squashedFFT.begin(), MAX_LENGTH / 4, a.analysisData.begin());
+    Analysis a = {getFilename(), std::array<float, ANALYSIS_DATA_LENGTH>()};
+    std::copy_n(squashedFFT.begin(), ANALYSIS_DATA_LENGTH, a.analysisData.begin());
 
     return std::make_shared<Analysis>(a);
   }

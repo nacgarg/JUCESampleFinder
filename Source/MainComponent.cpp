@@ -12,7 +12,7 @@
 #include <iterator>
 
 //==============================================================================
-MainComponent::MainComponent() {
+MainComponent::MainComponent() : appProps(new ApplicationProperties) {
     Image settingsImage = ImageCache::getFromMemory(BinaryData::settings_icon_png, BinaryData::settings_icon_pngSize);
     settingsButton = new ImageButton("settingsButton");
     settingsButton->setImages(true, true, true,
@@ -27,16 +27,21 @@ MainComponent::MainComponent() {
     setSize(300, 300);
     addAndMakeVisible(settingsButton);
     addAndMakeVisible(searchProgressBar);
-    if (sampleProcessor.library_exists()) {
-        sampleProcessor.analyze_files(progress_ref);
-    } else {
-        AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error", "Could not find sample library.\nPlease set the library location and try again.");
-    }
+
+	// load settings from properties file
+	auto settingOptions = PropertiesFile::Options();
+	settingOptions.applicationName = "SampleFinder";
+	settingOptions.filenameSuffix = ".cfg";
+	appProps->setStorageParameters(settingOptions);
+	propFile = appProps->getUserSettings();
+	setLibraryLocation(File(propFile->getValue(PROP_FILE_LIBRARY_LOCATION_KEY)));
 }
 
 MainComponent::~MainComponent() {
     delete settingsButton;
     delete searchProgressBar;
+	delete resultsComponent;
+	delete appProps;
 }
 
 //==============================================================================
@@ -54,8 +59,12 @@ void MainComponent::resized() {
     // This is called when the MainComponent is resized.
     // If you add any child components, this is where you should
     // update their positions.
+	const MessageManagerLock mml;
     settingsButton->setBounds(getWidth() - 25, getWidth() - 25, 20, 20);
     searchProgressBar->setBounds(25, 200, getWidth() - 50, 20);
+	if (resultsComponent) {
+		resultsComponent->setBounds(getLocalBounds());
+	}
 }
 
 bool MainComponent::isInterestedInFileDrag(const StringArray &files) {
@@ -64,20 +73,29 @@ bool MainComponent::isInterestedInFileDrag(const StringArray &files) {
                                  files[0].endsWith(".aif"));
 }
 
-void MainComponent::searchCallback(std::vector<std::shared_ptr<Analysis>> results) {
-    std::cout << "searchCallback" << std::endl;
+void MainComponent::searchCallback(std::vector<std::shared_ptr<Analysis>> results, void *this_pointer) {
+	std::cout << "searchCallback" << std::endl;
     std::ostringstream str_results;
     str_results << "found similar: " << std::endl;
     for (const std::shared_ptr<Analysis> &a : results) {
         str_results << a->filename << std::endl;
     }
+	MainComponent * self = static_cast<MainComponent*>(this_pointer);
+	const MessageManagerLock mml(Thread::getCurrentThread());
+	delete self->resultsComponent;
+	self->resultsComponent = new ResultsPreviewComponent(results);
+	{
+		const MessageManagerLock mml;
+		self->addAndMakeVisible(self->resultsComponent);
+	}
+	self->resized();
     AlertWindow::showMessageBox(AlertWindow::InfoIcon, "Results", str_results.str(), "cool");
 }
 
 void MainComponent::filesDropped(const StringArray &files, int x, int y) {
     // TODO Handle incoming file
     std::cout << "file dropped" << std::endl;
-    sampleProcessor.find_similar(File(files[0]), 10, searchCallback);
+    sampleProcessor.find_similar(File(files[0]), 10, searchCallback, this);
 }
 
 void MainComponent::fileDragEnter(const StringArray &files, int x, int y) {
@@ -93,14 +111,22 @@ void MainComponent::buttonClicked(Button *btn) {
                                    "*");
         if (libraryChooser.browseForDirectory()) {
             File libraryDir(libraryChooser.getResult());
-            // TODO: Make it save settings in the PropertyFile thingy
-            sampleProcessor.set_library_location({libraryDir});
-            if (sampleProcessor.library_exists()) {
-                double& progress_ref = analysis_progress;
-                sampleProcessor.analyze_files(progress_ref);
-            } else {
-                AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error", "Could not find sample library at " + sampleProcessor.get_library_location()[0].getFullPathName() + "\nPlease set the library location and try again.");
-            }
+            // TODO: Allow multiple library folders
+			setLibraryLocation(libraryDir);
         }
     }
+}
+
+void MainComponent::setLibraryLocation(File newLibraryLocation) {
+	sampleProcessor.set_library_location({ newLibraryLocation });
+	libraryLocation = newLibraryLocation;
+	if (sampleProcessor.library_exists()) {
+		// set propfile value
+		propFile->setValue(PROP_FILE_LIBRARY_LOCATION_KEY, libraryLocation.getFullPathName());
+		double& progress_ref = analysis_progress;
+		sampleProcessor.analyze_files(progress_ref);
+	}
+	else {
+		AlertWindow::showMessageBox(AlertWindow::WarningIcon, "Error", "Could not find sample library at " + sampleProcessor.get_library_location()[0].getFullPathName() + "\nPlease set the library location and try again.");
+	}
 }

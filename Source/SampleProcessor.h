@@ -79,7 +79,7 @@ public:
     // Start a thread to analyze the files in library_location. If the file is innacessible
     // for any reason, return false. Create .saf data files if they don't already exist.
     void find_similar(File similar_to, int num_results,
-                      std::function<void(std::vector<std::shared_ptr<Analysis>>)> callback);
+                      std::function<void(std::vector<std::shared_ptr<Analysis>>, void*)> callback, void* caller);
 
     // Start a thread to search through analysis_data to find the top  num_results similar
     // files.
@@ -91,8 +91,9 @@ private:
 
     FileAnalyzer *analysisThread = nullptr;
     FileSearcher *searchThread = nullptr;
+	void* callee;
 
     std::vector<std::shared_ptr<Analysis>> analysis_data;
-    bool analyzed;
-    std::function<void(std::vector<std::shared_ptr<Analysis>>)> searchCallback;
+	bool analyzed = false;
+    std::function<void(std::vector<std::shared_ptr<Analysis>>, void*)> searchCallback;
 };
