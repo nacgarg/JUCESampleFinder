@@ -18,7 +18,7 @@ class FileAnalyzer : public Thread {
 public:
     FileAnalyzer(std::vector<File> dirs,
                  std::vector<std::shared_ptr<Analysis>> *analysis_in, double& p);
-
+	~FileAnalyzer();
     void run() override;
 
     double &get_progress();

@@ -43,6 +43,10 @@ bool SampleProcessor::library_exists() {
 };
 
 void SampleProcessor::analyze_files(double& progress) {
+	if (analysisThread) {
+		analysisThread->signalThreadShouldExit();
+		analysisThread->waitForThreadToExit(-1);
+	}
     delete analysisThread;
     analyzed = false;
     analysisThread = new FileAnalyzer(library_location, &analysis_data, progress);
@@ -52,7 +56,11 @@ void SampleProcessor::analyze_files(double& progress) {
 }
 
 void SampleProcessor::exitSignalSent() {
-    std::cout << "exitSignalSent from " << Thread::getCurrentThread()->getThreadName() << std::endl;
+	if (!analysisThread || !Thread::getCurrentThread()) {
+		analysis_data.clear();
+		return;
+	}
+    //std::cout << "exitSignalSent from " << Thread::getCurrentThread()->getThreadName() << std::endl;
     if (Thread::getCurrentThread()->getThreadId() == analysisThread->getThreadId()) {
         // analysis complete!
         analyzed = true;
@@ -68,8 +76,9 @@ void SampleProcessor::find_similar(File similar_to,
                                    int num_results,
                                    std::function<void(std::vector<std::shared_ptr<Analysis>>, void *this_pointer)> callback, void* caller) {
     if (!analyzed) {
-        analysisThread->waitForThreadToExit(600000);
+        analysisThread->signalThreadShouldExit();
     }
+	analysisThread->waitForThreadToExit(-1);
     delete searchThread;
     searchCallback = callback;
 	callee = caller;
@@ -86,6 +95,9 @@ FileAnalyzer::FileAnalyzer(std::vector<File> dirs,
                            std::vector<std::shared_ptr<Analysis>> *analysis_in, double& p)
         : Thread("FileAnalyzer"), progress(p), library_location(std::move(dirs)), analysis_data(analysis_in) {}
 
+FileAnalyzer::~FileAnalyzer() {
+	stopThread(100);
+}
 void FileAnalyzer::run() {
 	std::cout << "Running" << std::endl;
     // Ideally, MonoSamples are only used when loading files and performing analysis.
@@ -95,6 +107,9 @@ void FileAnalyzer::run() {
     for (const File &dir : library_location) {
         DirectoryIterator iter(dir, true, "*.wav,*.aif,*.mp3");
         while (iter.next()) {
+			if (threadShouldExit()) {
+				return;
+			}
 			std::cout << iter.getEstimatedProgress() << std::endl;
             progress = iter.getEstimatedProgress();
             File* currFile = new File(iter.getFile());
@@ -123,15 +138,15 @@ void FileAnalyzer::run() {
 			auto s = new MonoSample(*currFile);
 			a = s->computeAnalysis();
 			delete s;
-			auto ofp = analysisFile->createOutputStream();
+			FileOutputStream ofp(*analysisFile);
 
-			if (!ofp || ofp->failedToOpen()) {
+			if (ofp.failedToOpen()) {
 				std::cerr << "Couldn't open analysis file for writing" << std::endl;
 				delete analysisFile;
 				AlertWindow::showMessageBox(AlertWindow::AlertIconType::WarningIcon, "File I/O Error", "Couldn't open file for writing", "rip");
 				continue;
 			}
-			Analysis::serialize(*ofp, *a);
+			Analysis::serialize(ofp, *a);
 			delete analysisFile;
 			if (a) {
 				analysis_data->push_back(a);
